@@ -6,7 +6,7 @@
 <title>iPhone 库存监控 · 京津门店取货</title>
 <style>
   :root {
-    --bg: #0b0d12; --panel: #141824; --panel2: #1a2030; --line: #262d40;
+    --bg: #0b0d12; --glow: #16203a; --panel: #141824; --panel2: #1a2030; --line: #262d40;
     --txt: #e8ecf5; --dim: #8b94ab; --accent: #4f8cff;
     --ok: #23c26b; --ok-bg: rgba(35,194,107,.12);
     --bad: #ff5a6a; --bad-bg: rgba(255,90,106,.10);
@@ -14,9 +14,10 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: radial-gradient(1200px 600px at 20% -10%, #16203a 0%, var(--bg) 55%);
+    background: radial-gradient(1200px 600px at 20% -10%, var(--glow) 0%, var(--bg) 55%);
     color: var(--txt); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     min-height: 100vh; padding: 24px 18px 60px;
+    transition: background .5s;
   }
   .wrap { max-width: 1080px; margin: 0 auto; }
   header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; margin-bottom: 18px; }
@@ -196,6 +197,29 @@ function curModel(d) {
   return { part: d.part, name: d.product, price: d.price, anyAvailable: d.anyAvailable, stores: d.stores || [] };
 }
 
+/* 按 iPhone 颜色切换页面主题：深色/浅色自动适配，找不到精确颜色时用相近色 */
+const COLOR_THEMES = [
+  { keys: ['星光白'], bg: '#f1eee8', glow: '#ffffff', panel: '#ffffff', panel2: '#f6f4ee', line: '#e0dccf', txt: '#1d1d1f', dim: '#6e6e73' },
+  { keys: ['银色'], bg: '#e9e9ed', glow: '#f5f5f7', panel: '#ffffff', panel2: '#f4f4f6', line: '#d8d8de', txt: '#1d1d1f', dim: '#6e6e73' },
+  { keys: ['冰川蓝'], bg: '#e4edf3', glow: '#d2e4ef', panel: '#ffffff', panel2: '#eef5f9', line: '#cfdde8', txt: '#1c2a33', dim: '#66788a' },
+  { keys: ['夜空黑'], bg: '#0a0a0d', glow: '#1d1d24', panel: '#131316', panel2: '#1c1c21', line: '#2a2a32', txt: '#e8ecf5', dim: '#8b94ab' },
+  { keys: ['黑色'], bg: '#0b0d12', glow: '#16203a', panel: '#141824', panel2: '#1a2030', line: '#262d40', txt: '#e8ecf5', dim: '#8b94ab' },
+  { keys: ['酒红'], bg: '#150b0d', glow: '#3d1620', panel: '#1f1216', panel2: '#2b1a20', line: '#3d2530', txt: '#f5e9ec', dim: '#a98b94' },
+];
+const DEFAULT_THEME = COLOR_THEMES[4];
+
+function applyTheme(modelName) {
+  const t = COLOR_THEMES.find(x => x.keys.some(k => modelName.includes(k))) || DEFAULT_THEME;
+  const root = document.documentElement.style;
+  root.setProperty('--bg', t.bg);
+  root.setProperty('--glow', t.glow);
+  root.setProperty('--panel', t.panel);
+  root.setProperty('--panel2', t.panel2);
+  root.setProperty('--line', t.line);
+  root.setProperty('--txt', t.txt);
+  root.setProperty('--dim', t.dim);
+}
+
 function syncModelUI(d) {
   const models = d.models || [];
   if (models.length && !modelList.length) {
@@ -207,6 +231,7 @@ function syncModelUI(d) {
     $('modelSel').value = String(modelIdx);
     const m = curModel(d);
     const buyUrl = buyUrlFor(m.name);
+    applyTheme(m.name);
     $('pageTitle').childNodes[0].textContent = '📱 ' + m.name + ' · 门店取货监控 ';
     $('buyLink').href = buyUrl;
     $('btnCopy').textContent = '📋 复制物料号 ' + m.part;
