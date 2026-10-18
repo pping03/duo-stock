@@ -355,7 +355,15 @@ $('modelSel').onchange = e => {
   modelIdx = +e.target.value;
   localStorage.setItem('duo_model_idx', String(modelIdx));
   const m = modelList[modelIdx];
-  log(m ? `已切换到 ${m.name}` : '机型已切换');
+  if (m) {
+    applyTheme(m.name);  // 立即切换背景主题，不等 API 返回
+    // 同步更新标题和按钮（数据等 API 返回后刷新）
+    $('pageTitle').childNodes[0].textContent = '📱 ' + m.name + ' · 门店取货监控 ';
+    $('buyLink').href = buyUrlFor(m.name);
+    $('btnCopy').textContent = '📋 复制物料号 ' + m.part;
+    document.title = m.name + ' · 京津门店库存监控';
+    log(`已切换到 ${m.name}`);
+  }
   poll();
 };
 $('intervalSel').onchange = e => { intervalMs = +e.target.value; restartTimer(); log(`刷新间隔已改为 ${intervalMs/1000} 秒`); };
