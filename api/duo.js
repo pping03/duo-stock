@@ -1,6 +1,7 @@
 // Vercel Serverless Function → GET /api/duo
-// 仅返回 iPhone Duo 各颜色/内存的天津北京门店库存
-import { fetchStock, DUO_MODELS } from "../lib/stock.js";
+// 仅返回 iPhone Duo 各颜色/内存的天津北京门店库存（简洁格式）
+// 加 ?verbose=1 返回完整格式
+import { fetchStock, toBrief, DUO_MODELS } from "../lib/stock.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
     return;
   }
   const data = await fetchStock(process.env, { force: req.query.force === "1", models: DUO_MODELS });
+  const out = req.query.verbose === "1" ? data : toBrief(data);
   res.setHeader("Cache-Control", "no-store");
-  res.status(200).json(data);
+  res.status(200).json(out);
 }
