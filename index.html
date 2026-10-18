@@ -46,6 +46,7 @@
   button:hover, .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button.on { background: var(--ok); border-color: var(--ok); color: #06220f; font-weight: 600; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
   select {
     background: var(--panel2); color: var(--txt); border: 1px solid var(--line);
     border-radius: 10px; padding: 9px 12px; font-size: 13px;
@@ -494,7 +495,19 @@ function restartTimer() {
   $('intervalTxt').textContent = (intervalMs / 1000) + ' 秒';
 }
 
-$('btnManual').onclick = () => { poll(); };
+let manualCooldownUntil = 0;
+$('btnManual').onclick = () => {
+  // 临时密钥用户：立即刷新按钮 3 秒内只能点一次，冷却期间按钮置灰（不弹窗）
+  if (isTempKeyActive()) {
+    const now = Date.now();
+    if (now < manualCooldownUntil) return;
+    manualCooldownUntil = now + 3000;
+    const btn = $('btnManual');
+    btn.disabled = true;
+    setTimeout(() => { btn.disabled = false; }, 3000);
+  }
+  poll();
+};
 $('btnKey').onclick = promptKey;
 $('modelSel').onchange = e => {
   modelIdx = +e.target.value;
