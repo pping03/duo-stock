@@ -90,6 +90,21 @@
   .errbar { display: none; background: #3a2410; border: 1px solid var(--warn); color: var(--warn);
     border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
   .errbar.show { display: block; }
+
+  /* 页面内弹窗（带遮罩，替代浏览器 alert/prompt） */
+  .m-ov{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px}
+  .m-ov.on{display:flex}
+  .m-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.5);width:100%;max-width:380px;padding:22px 20px;animation:mIn .18s ease-out}
+  @keyframes mIn{from{transform:scale(.94) translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .m-box h3{font-size:16px;margin-bottom:12px;color:var(--txt)}
+  .m-body{font-size:14px;line-height:1.7;color:var(--dim);margin-bottom:16px;word-break:break-all}
+  .m-body b{color:var(--txt)}
+  .m-input{width:100%;height:46px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-size:16px;padding:0 14px;outline:0;margin-bottom:16px}
+  .m-input:focus{border-color:var(--accent)}
+  .m-btns{display:flex;gap:10px}
+  .m-btns button{flex:1;height:44px;border:0;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}
+  .m-ok{background:var(--accent);color:#fff}
+  .m-cancel{background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
 </style>
 </head>
 <body>
@@ -165,10 +180,30 @@ const apiURL = () => {
   return API + '?_=' + Date.now() + (k ? '&key=' + encodeURIComponent(k) : '');
 };
 function isTempKeyActive() { return !!(TEMP_TOKEN && Date.now() < TEMP_EXPIRY); }
+// 页面内弹窗（带遮罩），替代浏览器 alert / prompt
+function escHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function showModal(o){
+  return new Promise(resolve=>{
+    const ov=$('mOv'),ti=$('mTitle'),bo=$('mBody'),inp=$('mInput'),ok=$('mOk'),cx=$('mCancel');
+    ti.textContent=o.title||'提示';
+    if(o.body){bo.innerHTML=o.body;bo.style.display='';}else{bo.style.display='none';}
+    if(o.input){inp.style.display='';inp.value=o.value||'';inp.placeholder=o.placeholder||'';}
+    else{inp.style.display='none';}
+    ok.textContent=o.okText||'确定';
+    if(o.cancelText){cx.style.display='';cx.textContent=o.cancelText;}else{cx.style.display='none';}
+    ov.classList.add('on');
+    const done=v=>{ov.classList.remove('on');ok.onclick=cx.onclick=ov.onclick=null;inp.onkeydown=null;resolve(v);};
+    ok.onclick=()=>done(o.input?inp.value.trim():true);
+    cx.onclick=()=>done(null);
+    ov.onclick=e=>{if(e.target===ov)done(null);};
+    inp.onkeydown=e=>{if(e.key==='Enter')ok.onclick();if(e.key==='Escape')done(null);};
+    setTimeout(()=>{(o.input?inp:ok).focus();if(o.input)inp.select();},50);
+  });
+}
 async function promptKey() {
-  const v = prompt('请输入访问密钥（输入 free 获取 1 小时临时访问）：', ACCESS_KEY || '');
+  const v = await showModal({title:'🔑 访问密钥',input:true,value:ACCESS_KEY||'',placeholder:'输入 free 获取 1 小时临时访问',okText:'确定',cancelText:'取消'});
   if (v === null) return;
-  const input = v.trim();
+  const input = v;
   if (input === 'free') {
     // 用临时密钥换取 1 小时会话 token
     try {
@@ -186,10 +221,10 @@ async function promptKey() {
         updateKeyButton();
         poll();
       } else {
-        alert('临时密钥换取失败：' + (d.error || '未知错误'));
+        await showModal({title:'⚠️ 换取失败',body:escHtml('临时密钥换取失败：' + (d.error || '未知错误')),okText:'知道了'});
       }
     } catch (e) {
-      alert('临时密钥换取失败：' + e.message);
+      await showModal({title:'⚠️ 换取失败',body:escHtml('临时密钥换取失败：' + e.message),okText:'知道了'});
     }
     return;
   }
@@ -463,7 +498,7 @@ async function poll() {
       $('errBar').classList.add('show');
       if (hadKey) {
         // 用户输入了密钥但被拒绝：弹窗提示，可用 free
-        alert('密钥错误或已过期！\n\n你可以输入免费密钥 free 获取 1 小时临时访问。');
+        await showModal({title:'⚠️ 密钥错误',body:'密钥错误或已过期！<br><br>你可以输入免费密钥 <b>free</b> 获取 1 小时临时访问。',okText:'知道了'});
       }
       promptKey();
       return;
@@ -524,10 +559,10 @@ $('modelSel').onchange = e => {
   }
   poll();
 };
-$('intervalSel').onchange = e => {
+$('intervalSel').onchange = async e => {
   const v = +e.target.value;
   if (v === 3000 && isTempKeyActive()) {
-    alert('临时访问模式下不能选择 3 秒刷新间隔，请使用主密钥。');
+    await showModal({title:'⚠️ 提示',body:escHtml('临时访问模式下不能选择 3 秒刷新间隔，请使用主密钥。'),okText:'知道了'});
     e.target.value = String(intervalMs);
     return;
   }
@@ -559,5 +594,18 @@ restartTimer();
 updateKeyButton();
 poll();
 </script>
+
+<!-- 通用页面内弹窗（带遮罩，替代浏览器 alert/prompt） -->
+<div class="m-ov" id="mOv">
+  <div class="m-box">
+    <h3 id="mTitle"></h3>
+    <div class="m-body" id="mBody" style="display:none"></div>
+    <input class="m-input" id="mInput" style="display:none" autocomplete="off">
+    <div class="m-btns">
+      <button class="m-cancel" id="mCancel" style="display:none">取消</button>
+      <button class="m-ok" id="mOk">确定</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
