@@ -235,7 +235,8 @@ function syncModelUI(d) {
     const m = curModel(d);
     const buyUrl = buyUrlFor(m.name);
     applyTheme(m.name);
-    $('pageTitle').childNodes[0].textContent = '📱 ' + m.name + ' · 门店取货监控 ';
+    const titleNode = $('pageTitle').childNodes[0];
+    if (titleNode) titleNode.textContent = '📱 ' + m.name + ' · 门店取货监控 ';
     $('buyLink').href = buyUrl;
     $('btnCopy').textContent = '📋 复制物料号 ' + m.part;
     $('footInfo').innerHTML =
@@ -292,15 +293,21 @@ function render(d) {
 }
 
 function startAlert(m) {
-  if (soundOn && !beepTimer) { playRingtone(); beepTimer = setTimeout(() => { beepTimer = null; }, 3000); }
-  if (!titleTimer) titleTimer = setInterval(() => {
-    document.title = document.title.startsWith('🚨') ? '  ' + m.name + ' 库存监控' : '🚨 有货！' + m.name + ' 库存监控';
-  }, 800);
-  if ('Notification' in window && Notification.permission === 'granted' && !window.__notified) {
-    new Notification(`🚨 ${m.name}有货了！`, { body: '天津/北京 Apple Store 检测到现货，快去下单！', tag: 'duo-stock' });
-    window.__notified = true;
-    setTimeout(() => window.__notified = false, 60000);
-  }
+  try {
+    if (soundOn && !beepTimer) { playRingtone(); beepTimer = setTimeout(() => { beepTimer = null; }, 3000); }
+  } catch (e) { console.warn('铃声提醒失败:', e.message); }
+  try {
+    if (!titleTimer) titleTimer = setInterval(() => {
+      document.title = document.title.startsWith('🚨') ? '  ' + m.name + ' 库存监控' : '🚨 有货！' + m.name + ' 库存监控';
+    }, 800);
+  } catch (e) { console.warn('标题闪烁失败:', e.message); }
+  try {
+    if ('Notification' in window && Notification.permission === 'granted' && !window.__notified) {
+      new Notification(`🚨 ${m.name}有货了！`, { body: '天津/北京 Apple Store 检测到现货，快去下单！', tag: 'duo-stock' });
+      window.__notified = true;
+      setTimeout(() => window.__notified = false, 60000);
+    }
+  } catch (e) { console.warn('系统通知失败:', e.message); }
 }
 function stopAlert(m) {
   if (beepTimer) { clearTimeout(beepTimer); beepTimer = null; }
