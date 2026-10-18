@@ -1,0 +1,19 @@
+// Cloudflare Pages Function → GET /api/duo
+// 仅返回 iPhone Duo 各颜色/内存的天津北京门店库存
+import { fetchStock, DUO_MODELS } from "../../lib/stock.js";
+
+const json = (obj, status = 200) =>
+  new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+  });
+
+export async function onRequestGet(context) {
+  const url = new URL(context.request.url);
+  const key = url.searchParams.get("key") || context.request.headers.get("x-access-key");
+  if (context.env.ACCESS_KEY && key !== context.env.ACCESS_KEY) {
+    return json({ ok: false, error: "访问密钥错误或未提供（?key=你的密钥）" }, 401);
+  }
+  const data = await fetchStock(context.env, { force: url.searchParams.get("force") === "1", models: DUO_MODELS });
+  return json(data);
+}
