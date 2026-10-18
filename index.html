@@ -292,7 +292,7 @@ function render(d) {
 }
 
 function startAlert(m) {
-  if (soundOn && !beepTimer) beepTimer = setInterval(beep, 1200);
+  if (soundOn && !beepTimer) { playRingtone(); beepTimer = setTimeout(() => { beepTimer = null; }, 3000); }
   if (!titleTimer) titleTimer = setInterval(() => {
     document.title = document.title.startsWith('🚨') ? '  ' + m.name + ' 库存监控' : '🚨 有货！' + m.name + ' 库存监控';
   }, 800);
@@ -303,8 +303,36 @@ function startAlert(m) {
   }
 }
 function stopAlert(m) {
-  if (beepTimer) { clearInterval(beepTimer); beepTimer = null; }
+  if (beepTimer) { clearTimeout(beepTimer); beepTimer = null; }
   if (titleTimer) { clearInterval(titleTimer); titleTimer = null; document.title = (m ? m.name : 'iPhone') + ' · 京津门店库存监控'; }
+}
+
+/* iPhone 来电铃声风格：Web Audio 合成，播放 3 秒 */
+function playRingtone() {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  // Marimba 风格的音符序列（E5 D5 C5 D5 E5 E5 E5 D5 D5）
+  const notes = [
+    [0.00, 659.25, 0.28], [0.30, 587.33, 0.28], [0.60, 523.25, 0.28],
+    [0.90, 587.33, 0.28], [1.20, 659.25, 0.28], [1.50, 659.25, 0.28],
+    [1.80, 659.25, 0.55], [2.40, 587.33, 0.28], [2.70, 523.25, 0.30],
+  ];
+  notes.forEach(([dt, freq, dur]) => {
+    const t = t0 + dt;
+    const o = audioCtx.createOscillator();
+    const o2 = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    const g2 = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    o2.type = 'sine'; o2.frequency.value = freq * 4;  // 泛音，模拟马林巴音色
+    g2.gain.value = 0.12;
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.start(t); o.stop(t + dur + 0.05);
+    o2.start(t); o2.stop(t + dur + 0.05);
+  });
 }
 
 function beep() {
@@ -380,7 +408,7 @@ $('btnSound').onclick = async () => {
   soundOn = !soundOn;
   $('btnSound').textContent = soundOn ? '🔕 关闭声音提醒' : '🔔 开启声音提醒';
   $('btnSound').classList.toggle('on', soundOn);
-  if (soundOn) beep();
+  if (soundOn) playRingtone();
   log(soundOn ? '声音提醒已开启' : '声音提醒已关闭');
 };
 $('btnNotify').onclick = async () => {
