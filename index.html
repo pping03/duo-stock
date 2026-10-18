@@ -206,8 +206,25 @@ async function promptKey() {
 }
 function updateKeyButton() {
   const btn = $('btnKey');
+  const sel = $('intervalSel');
+  const tempActive = isTempKeyActive();
+  // 临时密钥用户：禁止 3 秒刷新间隔
+  if (sel) {
+    const opt3s = sel.querySelector('option[value="3000"]');
+    if (opt3s) {
+      opt3s.disabled = tempActive;
+      if (tempActive) opt3s.textContent = '刷新间隔：3 秒（主密钥可用）';
+      else opt3s.textContent = '刷新间隔：3 秒';
+    }
+    if (tempActive && intervalMs === 3000) {
+      intervalMs = 10000;
+      sel.value = '10000';
+      restartTimer();
+      log('临时访问模式：刷新间隔已调整为 10 秒', 'up');
+    }
+  }
   if (!btn) return;
-  if (isTempKeyActive()) {
+  if (tempActive) {
     const mins = Math.max(1, Math.round((TEMP_EXPIRY - Date.now()) / 60000));
     btn.textContent = `⏳ 临时访问（剩 ${mins} 分钟）`;
     btn.classList.add('on');
@@ -494,7 +511,15 @@ $('modelSel').onchange = e => {
   }
   poll();
 };
-$('intervalSel').onchange = e => { intervalMs = +e.target.value; restartTimer(); log(`刷新间隔已改为 ${intervalMs/1000} 秒`); };
+$('intervalSel').onchange = e => {
+  const v = +e.target.value;
+  if (v === 3000 && isTempKeyActive()) {
+    alert('临时访问模式下不能选择 3 秒刷新间隔，请使用主密钥。');
+    e.target.value = String(intervalMs);
+    return;
+  }
+  intervalMs = v; restartTimer(); log(`刷新间隔已改为 ${intervalMs/1000} 秒`);
+};
 $('btnClear').onclick = () => { $('log').innerHTML = ''; };
 $('btnCopy').onclick = async () => {
   const m = modelList[modelIdx];
