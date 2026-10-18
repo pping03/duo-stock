@@ -309,30 +309,37 @@ function stopAlert(m) {
 
 /* iPhone 来电铃声风格：Web Audio 合成，播放 3 秒 */
 function playRingtone() {
-  if (!audioCtx) return;
-  const t0 = audioCtx.currentTime;
-  // Marimba 风格的音符序列（E5 D5 C5 D5 E5 E5 E5 D5 D5）
-  const notes = [
-    [0.00, 659.25, 0.28], [0.30, 587.33, 0.28], [0.60, 523.25, 0.28],
-    [0.90, 587.33, 0.28], [1.20, 659.25, 0.28], [1.50, 659.25, 0.28],
-    [1.80, 659.25, 0.55], [2.40, 587.33, 0.28], [2.70, 523.25, 0.30],
-  ];
-  notes.forEach(([dt, freq, dur]) => {
-    const t = t0 + dt;
-    const o = audioCtx.createOscillator();
-    const o2 = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    const g2 = audioCtx.createGain();
-    o.type = 'sine'; o.frequency.value = freq;
-    o2.type = 'sine'; o2.frequency.value = freq * 4;  // 泛音，模拟马林巴音色
-    g2.gain.value = 0.12;
-    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(audioCtx.destination);
-    g.gain.setValueAtTime(0.001, t);
-    g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    o.start(t); o.stop(t + dur + 0.05);
-    o2.start(t); o2.stop(t + dur + 0.05);
-  });
+  try {
+    if (!audioCtx) return;
+    // AudioContext 可能被浏览器挂起，尝试恢复
+    if (audioCtx.state === 'suspended') { audioCtx.resume().catch(() => {}); }
+    const t0 = audioCtx.currentTime;
+    // Marimba 风格的音符序列（E5 D5 C5 D5 E5 E5 E5 D5 D5）
+    const notes = [
+      [0.00, 659.25, 0.28], [0.30, 587.33, 0.28], [0.60, 523.25, 0.28],
+      [0.90, 587.33, 0.28], [1.20, 659.25, 0.28], [1.50, 659.25, 0.28],
+      [1.80, 659.25, 0.55], [2.40, 587.33, 0.28], [2.70, 523.25, 0.30],
+    ];
+    notes.forEach(([dt, freq, dur]) => {
+      const t = t0 + dt;
+      const o = audioCtx.createOscillator();
+      const o2 = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      const g2 = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      o2.type = 'sine'; o2.frequency.value = freq * 4;  // 泛音，模拟马林巴音色
+      g2.gain.value = 0.12;
+      o.connect(g); o2.connect(g2); g2.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.start(t); o.stop(t + dur + 0.05);
+      o2.start(t); o2.stop(t + dur + 0.05);
+    });
+  } catch (e) {
+    // 音频播放失败不影响主流程，只记录
+    console.warn('铃声播放失败:', e.message);
+  }
 }
 
 function beep() {
@@ -351,6 +358,7 @@ async function poll() {
   busy = true;
   $('liveDot').style.background = 'var(--accent)';
   const t0 = performance.now();
+  let d;
   try {
     const r = await fetch(apiURL());
     if (r.status === 401) {
@@ -359,15 +367,24 @@ async function poll() {
       promptKey();
       return;
     }
-    const d = await r.json();
+    d = await r.json();
     d.latencyMs = Math.round(performance.now() - t0);
+  } catch (e) {
+    // 网络/请求失败
+    $('errBar').textContent = '⚠️ 服务连接失败：' + e.message + '（下一轮自动重试）';
+    $('errBar').classList.add('show');
+    log('请求失败: ' + e.message, 'err');
+    return;
+  } finally {
+    busy = false;
+  }
+  try {
     render(d);
     $('liveDot').style.background = d.anyAvailable ? 'var(--ok)' : 'var(--ok)';
   } catch (e) {
-    $('errBar').textContent = '⚠️ 本地服务连接失败：' + e.message + '（请确认 server.py 正在运行）';
-    $('errBar').classList.add('show');
-  } finally {
-    busy = false;
+    // 页面渲染失败（与网络无关）
+    console.error('渲染失败:', e);
+    log('页面渲染异常: ' + e.message, 'err');
   }
 }
 
