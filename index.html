@@ -165,7 +165,7 @@ const apiURL = () => {
 };
 function isTempKeyActive() { return !!(TEMP_TOKEN && Date.now() < TEMP_EXPIRY); }
 async function promptKey() {
-  const v = prompt('请输入访问密钥（主密钥永久有效；输入 free 获取 1 小时临时访问）：', ACCESS_KEY || '');
+  const v = prompt('请输入访问密钥（输入 free 获取 1 小时临时访问）：', ACCESS_KEY || '');
   if (v === null) return;
   const input = v.trim();
   if (input === 'free') {
