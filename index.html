@@ -440,8 +440,13 @@ async function poll() {
   try {
     const r = await fetch(apiURL());
     if (r.status === 401) {
+      const hadKey = !!effectiveKey();
       $('errBar').textContent = '🔒 需要访问密钥才能查看（点右上角"🔑 访问密钥"填写）';
       $('errBar').classList.add('show');
+      if (hadKey) {
+        // 用户输入了密钥但被拒绝：弹窗提示，可用 free
+        alert('密钥错误或已过期！\n\n你可以输入免费密钥 free 获取 1 小时临时访问。');
+      }
       promptKey();
       return;
     }
