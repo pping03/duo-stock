@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iPhone Duo 512G 星光白 · 京津门店库存监控</title>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #141824; --panel2: #1a2030; --line: #262d40;
+    --txt: #e8ecf5; --dim: #8b94ab; --accent: #4f8cff;
+    --ok: #23c26b; --ok-bg: rgba(35,194,107,.12);
+    --bad: #ff5a6a; --bad-bg: rgba(255,90,106,.10);
+    --warn: #ffb02e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #16203a 0%, var(--bg) 55%);
+    color: var(--txt); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    min-height: 100vh; padding: 24px 18px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; margin-bottom: 18px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+  h1 .sub { display: block; font-size: 13px; color: var(--dim); font-weight: 400; margin-top: 6px; }
+  .spacer { flex: 1; }
+  .pill {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 14px; font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 8px;
+  }
+  .pill b { color: var(--txt); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .dot.pulse { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 22px; }
+  button, .btn {
+    background: var(--panel2); color: var(--txt); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 16px; font-size: 13px; cursor: pointer;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 7px;
+    transition: .15s;
+  }
+  button:hover, .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.on { background: var(--ok); border-color: var(--ok); color: #06220f; font-weight: 600; }
+  select {
+    background: var(--panel2); color: var(--txt); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 12px; font-size: 13px;
+  }
+
+  .banner {
+    display: none; border-radius: 14px; padding: 18px 20px; margin-bottom: 18px;
+    background: var(--ok-bg); border: 1px solid var(--ok); font-size: 16px; font-weight: 600;
+  }
+  .banner.show { display: block; animation: flash 1s infinite; }
+  @keyframes flash { 0%,100% { background: var(--ok-bg) } 50% { background: rgba(35,194,107,.28) } }
+  .banner a { color: var(--ok); margin-left: 10px; }
+
+  .city-title { font-size: 14px; color: var(--dim); margin: 22px 0 12px; letter-spacing: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; position: relative; overflow: hidden;
+  }
+  .card.ok { border-color: var(--ok); background: linear-gradient(180deg, var(--ok-bg), var(--panel)); }
+  .card.bad { opacity: .82; }
+  .card .name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .card .id { font-size: 11px; color: var(--dim); margin-bottom: 12px; }
+  .badge {
+    display: inline-block; border-radius: 999px; padding: 4px 11px;
+    font-size: 12px; font-weight: 600; margin-bottom: 10px;
+  }
+  .badge.ok { background: var(--ok); color: #06220f; }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); border: 1px solid rgba(255,90,106,.35); }
+  .badge.unknown { background: #2a3145; color: var(--dim); }
+  .card .quote { font-size: 12px; color: var(--dim); line-height: 1.6; min-height: 36px; }
+  .card .btn { margin-top: 12px; font-size: 12px; padding: 7px 12px; }
+  .card.ok .btn { background: var(--ok); border-color: var(--ok); color: #06220f; font-weight: 600; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-top: 26px; }
+  .panel h2 { font-size: 14px; color: var(--dim); letter-spacing: 2px; margin-bottom: 12px; }
+  #log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.9; max-height: 300px; overflow-y: auto; }
+  #log .t { color: var(--dim); margin-right: 10px; }
+  #log .up { color: var(--ok); } #log .down { color: var(--bad); } #log .info { color: var(--dim); } #log .err { color: var(--warn); }
+  .foot { margin-top: 18px; font-size: 11px; color: var(--dim); line-height: 1.8; }
+  .errbar { display: none; background: #3a2410; border: 1px solid var(--warn); color: var(--warn);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
+  .errbar.show { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📱 iPhone Duo 512GB 星光白 · 门店取货监控
+      <span class="sub">天津 3 家 + 北京 6 家 Apple Store 零售店 · 实时库存 · 自动刷新</span>
+    </h1>
+    <div class="spacer"></div>
+    <div class="pill"><span class="dot pulse" id="liveDot"></span> 刷新间隔 <b id="intervalTxt">3 秒</b></div>
+    <div class="pill">上次更新 <b id="lastUpdate">--:--:--</b></div>
+    <div class="pill">响应 <b id="latency">-</b></div>
+    <div class="pill">累计刷新 <b id="refreshCount">0</b></div>
+  </header>
+
+  <div class="errbar" id="errBar"></div>
+  <div class="banner" id="banner">🚨 检测到门店现货！<a href="https://www.apple.com.cn/shop/buy-iphone/iphone-duo" target="_blank">立即去下单 →</a></div>
+
+  <div class="toolbar">
+    <button class="primary" id="btnManual">🔄 立即刷新</button>
+    <button id="btnSound">🔔 开启声音提醒</button>
+    <button id="btnNotify">🔔 开启系统通知</button>
+    <select id="intervalSel">
+      <option value="3000" selected>刷新间隔：3 秒</option>
+      <option value="5000">5 秒</option>
+      <option value="10000">10 秒</option>
+      <option value="30000">30 秒</option>
+    </select>
+    <a class="btn" href="https://www.apple.com.cn/shop/buy-iphone/iphone-duo" target="_blank">🛒 苹果官网购买页</a>
+    <button id="btnKey">🔑 访问密钥</button>
+    <button id="btnCopy">📋 复制物料号 MK2P4CH/A</button>
+    <button id="btnClear">🧹 清空记录</button>
+  </div>
+
+  <div class="city-title">TIANJIN · 天津（3 家）</div>
+  <div class="grid" id="gridTJ"></div>
+  <div class="city-title">BEIJING · 北京（6 家）</div>
+  <div class="grid" id="gridBJ"></div>
+
+  <div class="panel">
+    <h2>变化记录 / EVENT LOG</h2>
+    <div id="log"></div>
+  </div>
+
+  <div class="foot">
+    产品：<b>iPhone Duo 512GB 星光白色</b> · 物料号 <b>MK2P4CH/A</b> · 官方价 ¥17,999 · 数据来源：Apple 官网零售店取货接口（pickup-message）<br>
+    说明：本页经本地 server.py 代理查询苹果接口，每 3 秒自动刷新；如遇“接口异常”多为访问频率触发风控，页面会自动恢复。请勿将此页面公开部署或并发多人使用。
+  </div>
+</div>
+
+<script>
+const API = '/api/stock';
+const BUY = 'https://www.apple.com.cn/shop/buy-iphone/iphone-duo';
+let ACCESS_KEY = localStorage.getItem('duo_access_key') || '';
+const apiURL = () => API + '?_=' + Date.now() + (ACCESS_KEY ? '&key=' + encodeURIComponent(ACCESS_KEY) : '');
+function promptKey() {
+  const v = prompt('请输入访问密钥（ACCESS_KEY）：', ACCESS_KEY || '');
+  if (v !== null) {
+    ACCESS_KEY = v.trim();
+    localStorage.setItem('duo_access_key', ACCESS_KEY);
+    log(ACCESS_KEY ? '访问密钥已保存' : '访问密钥已清空');
+    poll();
+  }
+}
+let intervalMs = 3000, timer = null, busy = false, count = 0;
+let prevState = {};      // storeNumber -> available
+let soundOn = false, audioCtx = null, beepTimer = null, titleTimer = null;
+
+const $ = id => document.getElementById(id);
+
+function nowStr() { return new Date().toLocaleTimeString('zh-CN', {hour12: false}); }
+
+function log(msg, cls = 'info') {
+  const el = document.createElement('div');
+  el.innerHTML = `<span class="t">${nowStr()}</span><span class="${cls}">${msg}</span>`;
+  const box = $('log');
+  box.prepend(el);
+  while (box.children.length > 200) box.removeChild(box.lastChild);
+}
+
+function card(s) {
+  const ok = s.available;
+  const badge = ok ? '<span class="badge ok">🟢 现货可取货</span>'
+                   : (s.pickupDisplay === 'unknown' ? '<span class="badge unknown">状态未知</span>'
+                                                    : '<span class="badge bad">⚪ 暂无供应</span>');
+  return `<div class="card ${ok ? 'ok' : 'bad'}">
+    <div class="name">Apple ${s.storeName}</div>
+    <div class="id">${s.city} · 门店号 ${s.storeNumber}</div>
+    ${badge}
+    <div class="quote">${s.quote || (ok ? '现在可以取货' : '目前无货')}</div>
+    <a class="btn" href="${s.reservationUrl || BUY}" target="_blank">${ok ? '⚡ 立即预约取货' : '查看 / 下单'}</a>
+  </div>`;
+}
+
+function render(d) {
+  if (!d.ok) {
+    $('errBar').textContent = '⚠️ ' + (d.error || '查询失败') + '（下一轮自动重试）';
+    $('errBar').classList.add('show');
+    log(d.error || '查询失败', 'err');
+    return;
+  }
+  $('errBar').classList.remove('show');
+  const tj = d.stores.filter(s => s.city === '天津');
+  const bj = d.stores.filter(s => s.city !== '天津');
+  $('gridTJ').innerHTML = tj.map(card).join('');
+  $('gridBJ').innerHTML = bj.map(card).join('');
+
+  $('lastUpdate').textContent = nowStr();
+  $('latency').textContent = (d.latencyMs ?? '-') + ' ms';
+  $('refreshCount').textContent = ++count;
+
+  let changed = 0;
+  d.stores.forEach(s => {
+    const was = prevState[s.storeNumber];
+    if (was !== undefined && was !== s.available) {
+      changed++;
+      log(`【${s.city}】Apple ${s.storeName} 状态变化 → ${s.available ? '🟢 有货' : '⚪ 无货'}（${s.quote}）`,
+          s.available ? 'up' : 'down');
+    } else if (was === undefined) {
+      log(`【${s.city}】Apple ${s.storeName} ${s.available ? '🟢 有货' : '⚪ ' + (s.quote || '暂无供应')}`, 'info');
+    }
+    prevState[s.storeNumber] = s.available;
+  });
+
+  const any = d.anyAvailable;
+  $('banner').classList.toggle('show', any);
+  if (any) {
+    startAlert();
+  } else {
+    stopAlert();
+  }
+  if (changed > 0 && any) $('liveDot').style.background = 'var(--ok)';
+}
+
+function startAlert() {
+  if (soundOn && !beepTimer) beepTimer = setInterval(beep, 1200);
+  if (!titleTimer) titleTimer = setInterval(() => {
+    document.title = document.title.startsWith('🚨') ? '  iPhone Duo 库存监控' : '🚨 有货！iPhone Duo 库存监控';
+  }, 800);
+  if ('Notification' in window && Notification.permission === 'granted' && !window.__notified) {
+    new Notification('🚨 iPhone Duo 512G 星光白有货了！', { body: '天津/北京 Apple Store 检测到现货，快去下单！', tag: 'duo-stock' });
+    window.__notified = true;
+    setTimeout(() => window.__notified = false, 60000);
+  }
+}
+function stopAlert() {
+  if (beepTimer) { clearInterval(beepTimer); beepTimer = null; }
+  if (titleTimer) { clearInterval(titleTimer); titleTimer = null; document.title = 'iPhone Duo 512G 星光白 · 京津门店库存监控'; }
+}
+
+function beep() {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type = 'sine'; o.frequency.value = 880;
+  g.gain.setValueAtTime(0.001, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+  o.start(); o.stop(audioCtx.currentTime + 0.4);
+}
+
+async function poll() {
+  if (busy) return;
+  busy = true;
+  $('liveDot').style.background = 'var(--accent)';
+  try {
+    const r = await fetch(apiURL());
+    if (r.status === 401) {
+      $('errBar').textContent = '🔒 需要访问密钥才能查看（点右上角"🔑 访问密钥"填写）';
+      $('errBar').classList.add('show');
+      promptKey();
+      return;
+    }
+    const d = await r.json();
+    render(d);
+    $('liveDot').style.background = d.anyAvailable ? 'var(--ok)' : 'var(--ok)';
+  } catch (e) {
+    $('errBar').textContent = '⚠️ 本地服务连接失败：' + e.message + '（请确认 server.py 正在运行）';
+    $('errBar').classList.add('show');
+  } finally {
+    busy = false;
+  }
+}
+
+function restartTimer() {
+  if (timer) clearInterval(timer);
+  timer = setInterval(poll, intervalMs);
+  $('intervalTxt').textContent = (intervalMs / 1000) + ' 秒';
+}
+
+$('btnManual').onclick = () => { poll(); };
+$('btnKey').onclick = promptKey;
+$('intervalSel').onchange = e => { intervalMs = +e.target.value; restartTimer(); log(`刷新间隔已改为 ${intervalMs/1000} 秒`); };
+$('btnClear').onclick = () => { $('log').innerHTML = ''; };
+$('btnCopy').onclick = async () => {
+  await navigator.clipboard.writeText('MK2P4CH/A');
+  log('已复制物料号 MK2P4CH/A');
+};
+$('btnSound').onclick = async () => {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  await audioCtx.resume();
+  soundOn = !soundOn;
+  $('btnSound').textContent = soundOn ? '🔕 关闭声音提醒' : '🔔 开启声音提醒';
+  $('btnSound').classList.toggle('on', soundOn);
+  if (soundOn) beep();
+  log(soundOn ? '声音提醒已开启' : '声音提醒已关闭');
+};
+$('btnNotify').onclick = async () => {
+  if (!('Notification' in window)) { log('此浏览器不支持系统通知', 'err'); return; }
+  const p = await Notification.requestPermission();
+  log(p === 'granted' ? '系统通知已开启' : '系统通知权限被拒绝', p === 'granted' ? 'up' : 'err');
+};
+
+restartTimer();
+poll();
+</script>
+</body>
+</html>
