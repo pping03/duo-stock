@@ -5,19 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>iPhone 库存监控 · 京津门店取货</title>
 <style>
+  /* 让渐变颜色可动画（切换机型时背景 1 秒平滑过渡） */
+  @property --bg { syntax: '<color>'; inherits: true; initial-value: #0b0d12; }
+  @property --glow { syntax: '<color>'; inherits: true; initial-value: #16203a; }
   :root {
     --bg: #0b0d12; --glow: #16203a; --panel: #141824; --panel2: #1a2030; --line: #262d40;
     --txt: #e8ecf5; --dim: #8b94ab; --accent: #4f8cff;
     --ok: #23c26b; --ok-bg: rgba(35,194,107,.12);
     --bad: #ff5a6a; --bad-bg: rgba(255,90,106,.10);
     --warn: #ffb02e;
+    transition: --bg 1s, --glow 1s;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     background: radial-gradient(1200px 600px at 20% -10%, var(--glow) 0%, var(--bg) 55%);
     color: var(--txt); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     min-height: 100vh; padding: 24px 18px 60px;
-    transition: background .5s;
   }
   .wrap { max-width: 1080px; margin: 0 auto; }
   header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; margin-bottom: 18px; }
