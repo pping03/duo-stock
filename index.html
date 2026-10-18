@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>iPhone Duo 512G 星光白 · 京津门店库存监控</title>
+<title>iPhone 库存监控 · 京津门店取货</title>
 <style>
   :root {
     --bg: #0b0d12; --panel: #141824; --panel2: #1a2030; --line: #262d40;
@@ -90,7 +90,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>📱 iPhone Duo 512GB 星光白 · 门店取货监控
+    <h1 id="pageTitle">📱 iPhone 库存监控
       <span class="sub">天津 3 家 + 北京 6 家 Apple Store 零售店 · 实时库存 · 自动刷新</span>
     </h1>
     <div class="spacer"></div>
@@ -104,6 +104,7 @@
   <div class="banner" id="banner">🚨 检测到门店现货！<a href="https://www.apple.com.cn/shop/buy-iphone/iphone-duo" target="_blank">立即去下单 →</a></div>
 
   <div class="toolbar">
+    <select id="modelSel" title="选择监控机型"></select>
     <button class="primary" id="btnManual">🔄 立即刷新</button>
     <button id="btnSound">🔔 开启声音提醒</button>
     <button id="btnNotify">🔔 开启系统通知</button>
@@ -113,9 +114,9 @@
       <option value="10000">10 秒</option>
       <option value="30000">30 秒</option>
     </select>
-    <a class="btn" href="https://www.apple.com.cn/shop/buy-iphone/iphone-duo" target="_blank">🛒 苹果官网购买页</a>
+    <a class="btn" id="buyLink" href="https://www.apple.com.cn/shop/buy-iphone/iphone-duo" target="_blank">🛒 苹果官网购买页</a>
     <button id="btnKey">🔑 访问密钥</button>
-    <button id="btnCopy">📋 复制物料号 MK2P4CH/A</button>
+    <button id="btnCopy">📋 复制物料号</button>
     <button id="btnClear">🧹 清空记录</button>
   </div>
 
@@ -129,16 +130,23 @@
     <div id="log"></div>
   </div>
 
-  <div class="foot">
-    产品：<b>iPhone Duo 512GB 星光白色</b> · 物料号 <b>MK2P4CH/A</b> · 官方价 ¥17,999 · 数据来源：Apple 官网零售店取货接口（pickup-message）<br>
-    说明：本页经本地 server.py 代理查询苹果接口，每 3 秒自动刷新；如遇“接口异常”多为访问频率触发风控，页面会自动恢复。请勿将此页面公开部署或并发多人使用。
+  <div class="foot" id="footInfo">
+    数据来源：Apple 官网零售店取货接口（pickup-message）<br>
+    说明：本页经服务端代理查询苹果接口，自动刷新；如遇“接口异常”多为访问频率触发风控，页面会自动恢复。请勿将此页面公开部署或并发多人使用。
   </div>
 </div>
 
 <script>
 const API = '/api/stock';
-const BUY = 'https://www.apple.com.cn/shop/buy-iphone/iphone-duo';
+const BUY_URLS = [
+  ['Duo', 'https://www.apple.com.cn/shop/buy-iphone/iphone-duo'],
+  ['Pro Max', 'https://www.apple.com.cn/shop/buy-iphone/iphone-18-pro'],
+  ['Pro', 'https://www.apple.com.cn/shop/buy-iphone/iphone-18-pro'],
+];
+const buyUrlFor = name => (BUY_URLS.find(([k]) => name.includes(k)) || [])[1] || 'https://www.apple.com.cn/shop/buy-iphone';
 let ACCESS_KEY = localStorage.getItem('duo_access_key') || '';
+let modelIdx = +(localStorage.getItem('duo_model_idx') || 0);
+let modelList = [];
 const apiURL = () => API + '?_=' + Date.now() + (ACCESS_KEY ? '&key=' + encodeURIComponent(ACCESS_KEY) : '');
 function promptKey() {
   const v = prompt('请输入访问密钥（ACCESS_KEY）：', ACCESS_KEY || '');
@@ -165,7 +173,7 @@ function log(msg, cls = 'info') {
   while (box.children.length > 200) box.removeChild(box.lastChild);
 }
 
-function card(s) {
+function card(s, buyUrl) {
   const ok = s.available;
   const badge = ok ? '<span class="badge ok">🟢 现货可取货</span>'
                    : (s.pickupDisplay === 'unknown' ? '<span class="badge unknown">状态未知</span>'
@@ -175,8 +183,38 @@ function card(s) {
     <div class="id">${s.city} · 门店号 ${s.storeNumber}</div>
     ${badge}
     <div class="quote">${s.quote || (ok ? '现在可以取货' : '目前无货')}</div>
-    <a class="btn" href="${s.reservationUrl || BUY}" target="_blank">${ok ? '⚡ 立即预约取货' : '查看 / 下单'}</a>
+    <a class="btn" href="${s.reservationUrl || buyUrl}" target="_blank">${ok ? '⚡ 立即预约取货' : '查看 / 下单'}</a>
   </div>`;
+}
+
+function curModel(d) {
+  if (d.models && d.models.length) {
+    if (modelIdx >= d.models.length) modelIdx = 0;
+    return d.models[modelIdx];
+  }
+  // 兼容老格式
+  return { part: d.part, name: d.product, price: d.price, anyAvailable: d.anyAvailable, stores: d.stores || [] };
+}
+
+function syncModelUI(d) {
+  const models = d.models || [];
+  if (models.length && !modelList.length) {
+    modelList = models;
+    $('modelSel').innerHTML = models.map((m, i) =>
+      `<option value="${i}">${m.name} ¥${m.price.toLocaleString()}</option>`).join('');
+  }
+  if (modelList.length) {
+    $('modelSel').value = String(modelIdx);
+    const m = curModel(d);
+    const buyUrl = buyUrlFor(m.name);
+    $('pageTitle').childNodes[0].textContent = '📱 ' + m.name + ' · 门店取货监控 ';
+    $('buyLink').href = buyUrl;
+    $('btnCopy').textContent = '📋 复制物料号 ' + m.part;
+    $('footInfo').innerHTML =
+      `产品：<b>${m.name}</b> · 物料号 <b>${m.part}</b> · 官方价 ¥${m.price.toLocaleString()} · 数据来源：Apple 官网零售店取货接口（pickup-message）<br>` +
+      `说明：本页经服务端代理查询苹果接口，自动刷新；如遇“接口异常”多为访问频率触发风控，页面会自动恢复。请勿将此页面公开部署或并发多人使用。`;
+    document.title = m.name + ' · 京津门店库存监控';
+  }
 }
 
 function render(d) {
@@ -187,52 +225,58 @@ function render(d) {
     return;
   }
   $('errBar').classList.remove('show');
-  const tj = d.stores.filter(s => s.city === '天津');
-  const bj = d.stores.filter(s => s.city !== '天津');
-  $('gridTJ').innerHTML = tj.map(card).join('');
-  $('gridBJ').innerHTML = bj.map(card).join('');
+  syncModelUI(d);
+  const m = curModel(d);
+  const buyUrl = buyUrlFor(m.name);
+  const stores = m.stores || [];
+  const tj = stores.filter(s => s.city === '天津');
+  const bj = stores.filter(s => s.city !== '天津');
+  $('gridTJ').innerHTML = tj.map(s => card(s, buyUrl)).join('');
+  $('gridBJ').innerHTML = bj.map(s => card(s, buyUrl)).join('');
 
   $('lastUpdate').textContent = nowStr();
   $('latency').textContent = (d.latencyMs ?? '-') + ' ms';
   $('refreshCount').textContent = ++count;
 
   let changed = 0;
-  d.stores.forEach(s => {
-    const was = prevState[s.storeNumber];
+  stores.forEach(s => {
+    const key = m.part + ':' + s.storeNumber;
+    const was = prevState[key];
     if (was !== undefined && was !== s.available) {
       changed++;
-      log(`【${s.city}】Apple ${s.storeName} 状态变化 → ${s.available ? '🟢 有货' : '⚪ 无货'}（${s.quote}）`,
+      log(`【${m.name}】【${s.city}】Apple ${s.storeName} 状态变化 → ${s.available ? '🟢 有货' : '⚪ 无货'}（${s.quote}）`,
           s.available ? 'up' : 'down');
     } else if (was === undefined) {
-      log(`【${s.city}】Apple ${s.storeName} ${s.available ? '🟢 有货' : '⚪ ' + (s.quote || '暂无供应')}`, 'info');
+      log(`【${m.name}】【${s.city}】Apple ${s.storeName} ${s.available ? '🟢 有货' : '⚪ ' + (s.quote || '暂无供应')}`, 'info');
     }
-    prevState[s.storeNumber] = s.available;
+    prevState[key] = s.available;
   });
 
-  const any = d.anyAvailable;
+  const any = m.anyAvailable;
   $('banner').classList.toggle('show', any);
+  $('banner').innerHTML = `🚨 ${m.name} 检测到门店现货！<a href="${buyUrl}" target="_blank">立即去下单 →</a>`;
   if (any) {
-    startAlert();
+    startAlert(m);
   } else {
-    stopAlert();
+    stopAlert(m);
   }
   if (changed > 0 && any) $('liveDot').style.background = 'var(--ok)';
 }
 
-function startAlert() {
+function startAlert(m) {
   if (soundOn && !beepTimer) beepTimer = setInterval(beep, 1200);
   if (!titleTimer) titleTimer = setInterval(() => {
-    document.title = document.title.startsWith('🚨') ? '  iPhone Duo 库存监控' : '🚨 有货！iPhone Duo 库存监控';
+    document.title = document.title.startsWith('🚨') ? '  ' + m.name + ' 库存监控' : '🚨 有货！' + m.name + ' 库存监控';
   }, 800);
   if ('Notification' in window && Notification.permission === 'granted' && !window.__notified) {
-    new Notification('🚨 iPhone Duo 512G 星光白有货了！', { body: '天津/北京 Apple Store 检测到现货，快去下单！', tag: 'duo-stock' });
+    new Notification(`🚨 ${m.name}有货了！`, { body: '天津/北京 Apple Store 检测到现货，快去下单！', tag: 'duo-stock' });
     window.__notified = true;
     setTimeout(() => window.__notified = false, 60000);
   }
 }
-function stopAlert() {
+function stopAlert(m) {
   if (beepTimer) { clearInterval(beepTimer); beepTimer = null; }
-  if (titleTimer) { clearInterval(titleTimer); titleTimer = null; document.title = 'iPhone Duo 512G 星光白 · 京津门店库存监控'; }
+  if (titleTimer) { clearInterval(titleTimer); titleTimer = null; document.title = (m ? m.name : 'iPhone') + ' · 京津门店库存监控'; }
 }
 
 function beep() {
@@ -277,11 +321,20 @@ function restartTimer() {
 
 $('btnManual').onclick = () => { poll(); };
 $('btnKey').onclick = promptKey;
+$('modelSel').onchange = e => {
+  modelIdx = +e.target.value;
+  localStorage.setItem('duo_model_idx', String(modelIdx));
+  const m = modelList[modelIdx];
+  log(m ? `已切换到 ${m.name}` : '机型已切换');
+  poll();
+};
 $('intervalSel').onchange = e => { intervalMs = +e.target.value; restartTimer(); log(`刷新间隔已改为 ${intervalMs/1000} 秒`); };
 $('btnClear').onclick = () => { $('log').innerHTML = ''; };
 $('btnCopy').onclick = async () => {
-  await navigator.clipboard.writeText('MK2P4CH/A');
-  log('已复制物料号 MK2P4CH/A');
+  const m = modelList[modelIdx];
+  const part = m ? m.part : 'MK2P4CH/A';
+  await navigator.clipboard.writeText(part);
+  log('已复制物料号 ' + part);
 };
 $('btnSound').onclick = async () => {
   audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
