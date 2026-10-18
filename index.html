@@ -149,18 +149,89 @@ const BUY_URLS = [
 ];
 const buyUrlFor = name => (BUY_URLS.find(([k]) => name.includes(k)) || [])[1] || 'https://www.apple.com.cn/shop/buy-iphone';
 let ACCESS_KEY = localStorage.getItem('duo_access_key') || '';
+let TEMP_TOKEN = localStorage.getItem('duo_temp_token') || '';
+let TEMP_EXPIRY = +(localStorage.getItem('duo_temp_expiry') || 0);
 let modelIdx = +(localStorage.getItem('duo_model_idx') || 0);
 let modelList = [];
-const apiURL = () => API + '?_=' + Date.now() + (ACCESS_KEY ? '&key=' + encodeURIComponent(ACCESS_KEY) : '');
-function promptKey() {
-  const v = prompt('请输入访问密钥（ACCESS_KEY）：', ACCESS_KEY || '');
-  if (v !== null) {
-    ACCESS_KEY = v.trim();
-    localStorage.setItem('duo_access_key', ACCESS_KEY);
-    log(ACCESS_KEY ? '访问密钥已保存' : '访问密钥已清空');
-    poll();
+// API 调用用的密钥：优先用主密钥，否则用未过期的临时 token
+function effectiveKey() {
+  if (ACCESS_KEY && ACCESS_KEY !== 'free') return ACCESS_KEY;
+  if (TEMP_TOKEN && Date.now() < TEMP_EXPIRY) return TEMP_TOKEN;
+  return '';
+}
+const apiURL = () => {
+  const k = effectiveKey();
+  return API + '?_=' + Date.now() + (k ? '&key=' + encodeURIComponent(k) : '');
+};
+function isTempKeyActive() { return !!(TEMP_TOKEN && Date.now() < TEMP_EXPIRY); }
+async function promptKey() {
+  const v = prompt('请输入访问密钥（主密钥永久有效；输入 free 获取 1 小时临时访问）：', ACCESS_KEY || '');
+  if (v === null) return;
+  const input = v.trim();
+  if (input === 'free') {
+    // 用临时密钥换取 1 小时会话 token
+    try {
+      const r = await fetch('/api/temp-key?key=free&_=' + Date.now());
+      const d = await r.json();
+      if (d.ok && d.token) {
+        TEMP_TOKEN = d.token;
+        TEMP_EXPIRY = d.expiresAt;
+        localStorage.setItem('duo_temp_token', TEMP_TOKEN);
+        localStorage.setItem('duo_temp_expiry', String(TEMP_EXPIRY));
+        ACCESS_KEY = '';
+        localStorage.removeItem('duo_access_key');
+        const mins = Math.round((TEMP_EXPIRY - Date.now()) / 60000);
+        log(`临时访问已激活，有效期 ${mins} 分钟（到期需重新输入 free）`);
+        updateKeyButton();
+        poll();
+      } else {
+        alert('临时密钥换取失败：' + (d.error || '未知错误'));
+      }
+    } catch (e) {
+      alert('临时密钥换取失败：' + e.message);
+    }
+    return;
+  }
+  // 主密钥或清空
+  ACCESS_KEY = input;
+  TEMP_TOKEN = '';
+  TEMP_EXPIRY = 0;
+  localStorage.removeItem('duo_temp_token');
+  localStorage.removeItem('duo_temp_expiry');
+  if (ACCESS_KEY) localStorage.setItem('duo_access_key', ACCESS_KEY);
+  else localStorage.removeItem('duo_access_key');
+  log(ACCESS_KEY ? '访问密钥已保存' : '访问密钥已清空');
+  updateKeyButton();
+  poll();
+}
+function updateKeyButton() {
+  const btn = $('btnKey');
+  if (!btn) return;
+  if (isTempKeyActive()) {
+    const mins = Math.max(1, Math.round((TEMP_EXPIRY - Date.now()) / 60000));
+    btn.textContent = `⏳ 临时访问（剩 ${mins} 分钟）`;
+    btn.classList.add('on');
+  } else {
+    // 过期的临时 token 自动清理
+    if (TEMP_TOKEN) {
+      TEMP_TOKEN = ''; TEMP_EXPIRY = 0;
+      localStorage.removeItem('duo_temp_token');
+      localStorage.removeItem('duo_temp_expiry');
+    }
+    btn.textContent = ACCESS_KEY ? '🔑 更换密钥' : '🔑 访问密钥';
+    btn.classList.toggle('on', !!ACCESS_KEY);
   }
 }
+// 每分钟检查临时 token 是否过期
+setInterval(() => {
+  if (TEMP_TOKEN && Date.now() >= TEMP_EXPIRY) {
+    log('临时访问已过期，请重新输入 free 获取', 'err');
+    updateKeyButton();
+    poll();
+  } else if (isTempKeyActive()) {
+    updateKeyButton();
+  }
+}, 60000);
 let intervalMs = 3000, timer = null, busy = false, count = 0;
 let prevState = {};      // storeNumber -> available
 let soundOn = false, audioCtx = null, beepTimer = null, titleTimer = null;
@@ -442,6 +513,7 @@ $('btnNotify').onclick = async () => {
 };
 
 restartTimer();
+updateKeyButton();
 poll();
 </script>
 </body>
