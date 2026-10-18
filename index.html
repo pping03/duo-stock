@@ -319,6 +319,7 @@ async function poll() {
   if (busy) return;
   busy = true;
   $('liveDot').style.background = 'var(--accent)';
+  const t0 = performance.now();
   try {
     const r = await fetch(apiURL());
     if (r.status === 401) {
@@ -328,6 +329,7 @@ async function poll() {
       return;
     }
     const d = await r.json();
+    d.latencyMs = Math.round(performance.now() - t0);
     render(d);
     $('liveDot').style.background = d.anyAvailable ? 'var(--ok)' : 'var(--ok)';
   } catch (e) {
