@@ -1,7 +1,7 @@
 // Vercel Serverless Function → GET /api/duo
 // 仅返回 iPhone Duo 各颜色/内存的天津北京门店库存（简洁格式）
 // 加 ?verbose=1 返回完整格式
-import { fetchStock, toBrief, DUO_MODELS } from "../lib/stock.js";
+import { fetchStock, toBrief, DUO_MODELS, checkAuth } from "../lib/stock.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -9,8 +9,9 @@ export default async function handler(req, res) {
     return;
   }
   const key = req.query.key || req.headers["x-access-key"];
-  if (process.env.ACCESS_KEY && key !== process.env.ACCESS_KEY) {
-    res.status(401).json({ ok: false, error: "访问密钥错误或未提供（?key=你的密钥）" });
+  const auth = await checkAuth(key, process.env);
+  if (!auth.ok) {
+    res.status(401).json({ ok: false, error: "访问密钥错误、已过期或未提供（?key=你的密钥）" });
     return;
   }
   const data = await fetchStock(process.env, { force: req.query.force === "1", models: DUO_MODELS });
